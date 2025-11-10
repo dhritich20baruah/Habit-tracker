@@ -1,11 +1,12 @@
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View } from "react-native";
+import { useState, useEffect } from "react";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Button, TouchableOpacity } from "react-native";
-import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
+import { TouchableOpacity, Alert } from "react-native";
+import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 import Dashboard from "./screens/Dashboard";
 
 export type RootStackParamList = {
@@ -17,7 +18,12 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;
 
 type Database = {
   execAsync: (query: string) => Promise<void>;
-}
+};
+
+type User = {
+  id: number;
+  name: string;
+};
 
 const initializeDB = async (db: Database): Promise<void> => {
   try {
@@ -31,22 +37,62 @@ const initializeDB = async (db: Database): Promise<void> => {
 };
 
 export function HomeScreen() {
-  return(
-    <SQLiteProvider databaseName='healthTracker.db' onInit={initializeDB}>
+  return (
+    <SQLiteProvider databaseName="healthTracker.db" onInit={initializeDB}>
       <Intro />
     </SQLiteProvider>
-  )
+  );
 }
 
-export function Intro(){
-    const navigation = useNavigation<NavigationProp>();
-    const db = useSQLiteContext();
+export function Intro() {
+  const navigation = useNavigation<NavigationProp>();
+  const db = useSQLiteContext();
+  const [name, setName] = useState<string>("");
+  const [users, setUsers] = useState<User[]>([]);
+
+  const addName = async (): Promise<void> => {
+    if (!name.trim()) {
+      Alert.alert("Name is required");
+      return;
+    }
+
+    try {
+      await db.runAsync("INSERT INTO userData (name) VALUES (?)", [name]);
+      await fetchUsers();
+    } catch (error) {
+      console.error("Error inserting name:", error);
+    }
+  };
+
+    const fetchUsers = async (): Promise<void> => {
+    try {
+      const result = await db.getAllAsync<User>("SELECT * FROM userData");
+      setUsers(result);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   return (
     <View style={styles.container}>
-      <Text>It seems you are using this app for the first time. What do I call you?</Text>
+      <Text style={styles.textQuery}>
+        It seems you are using this app for the first time. What do I call you?
+      </Text>
+      <TextInput
+        style={styles.nameInput}
+        placeholder="Your Name"
+        value={name}
+        onChangeText={setName}
+      />
+      <TouchableOpacity onPress={addName}>
+        <Text style={styles.textBtn}>Get Started</Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate("Dashboard")}>
-        <Text style={styles.text}>Get Started</Text>
+        <Text style={styles.textBtn}>Get Started</Text>
       </TouchableOpacity>
     </View>
   );
@@ -90,9 +136,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  text: {
+  textBtn: {
     color: "white",
     padding: 10,
     backgroundColor: "orange",
+  },
+  textQuery: {
+    color: "black",
+    fontSize: 30,
+    margin: 10,
+  },
+  nameInput: {
+    fontSize: 30,
+    padding: 5,
+    borderBottomColor: "black",
   },
 });
