@@ -1,11 +1,11 @@
 import { StatusBar } from "expo-status-bar";
 import { useState, useEffect } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View, TouchableOpacity, Alert } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { NavigationContainer } from "@react-navigation/native";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { TouchableOpacity, Alert } from "react-native";
 import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 import Dashboard from "./screens/Dashboard";
 
@@ -27,6 +27,7 @@ type User = {
 
 const initializeDB = async (db: Database): Promise<void> => {
   try {
+    console.log("Initializing DB...");
     await db.execAsync(`
         PRAGMA journal_mode = WAL;
         CREATE TABLE IF NOT EXISTS userData (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT);`);
@@ -37,18 +38,40 @@ const initializeDB = async (db: Database): Promise<void> => {
 };
 
 export function HomeScreen() {
+  const [dbReady, setDbReady] = useState(false);
+
+  const handleInit = async (db: Database) => {
+    console.log("handleInit called");
+    await initializeDB(db);
+    console.log("DB setup done, setting ready to true");
+    setDbReady(true);
+  };
+
   return (
-    <SQLiteProvider databaseName="healthTracker.db" onInit={initializeDB}>
-      <Intro />
+    <SQLiteProvider databaseName="healthTracker.db" onInit={handleInit}>
+      {dbReady ? <Intro /> : <Text>Loading database...</Text>}
     </SQLiteProvider>
   );
 }
 
 export function Intro() {
-  const navigation = useNavigation<NavigationProp>();
   const db = useSQLiteContext();
+  const navigation = useNavigation<NavigationProp>();
   const [name, setName] = useState<string>("");
   const [users, setUsers] = useState<User[]>([]);
+
+  const fetchUsers = async (): Promise<void> => {
+    try {
+      const result = await db.getAllAsync<User>("SELECT * FROM userData");
+      setUsers(result);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const addName = async (): Promise<void> => {
     if (!name.trim()) {
@@ -64,37 +87,45 @@ export function Intro() {
     }
   };
 
-    const fetchUsers = async (): Promise<void> => {
-    try {
-      const result = await db.getAllAsync<User>("SELECT * FROM userData");
-      setUsers(result);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.textQuery}>
-        It seems you are using this app for the first time. What do I call you?
-      </Text>
-      <TextInput
-        style={styles.nameInput}
-        placeholder="Your Name"
-        value={name}
-        onChangeText={setName}
-      />
-      <TouchableOpacity onPress={addName}>
-        <Text style={styles.textBtn}>Get Started</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("Dashboard")}>
-        <Text style={styles.textBtn}>Get Started</Text>
-      </TouchableOpacity>
-    </View>
+     <LinearGradient colors={["#FFB75E", "#ED8F03"]} style={styles.gradient}>
+      <View style={styles.container}>
+        {users.length === 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.title}>👋 Welcome!</Text>
+            <Text style={styles.subtitle}>
+              It seems you're using this app for the first time.{"\n"}What should I call you?
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your name"
+              value={name}
+              onChangeText={setName}
+              placeholderTextColor="#aaa"
+            />
+
+            <TouchableOpacity style={styles.button} onPress={addName}>
+              <Text style={styles.buttonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            {users.map((item) => (
+              <Text style={styles.title} key={item.id}>
+                👋 Hello, {item.name}!
+              </Text>
+            ))}
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: "#28a745" }]}
+              onPress={() => navigation.navigate("Dashboard")}
+            >
+              <Text style={styles.buttonText}>Get Started →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </LinearGradient>
   );
 }
 
@@ -130,25 +161,66 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
-  textBtn: {
-    color: "white",
+  card: {
+    width: "100%",
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  input: {
+    width: "90%",
+    backgroundColor: "#f8f8f8",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
     padding: 10,
-    backgroundColor: "orange",
+    fontSize: 18,
+    color: "#333",
+    marginBottom: 20,
+    textAlign: "center",
   },
-  textQuery: {
-    color: "black",
-    fontSize: 30,
-    margin: 10,
+  button: {
+    backgroundColor: "#FF9800",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  nameInput: {
-    fontSize: 30,
-    padding: 5,
-    borderBottomColor: "black",
+  buttonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "600",
   },
 });
