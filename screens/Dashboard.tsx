@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
+import { Calendar } from "react-native-calendars";
 
 export default function Dashboard() {
   return (
@@ -28,37 +29,44 @@ export function DashboardScreen() {
     month: "2-digit",
     year: "numeric",
   });
+
+  const [selected, setSelected] = useState<string>("2025-11-12");
+
   return (
     <ScrollView>
       <View style={styles.container}>
-        <Text style={styles.title}>{date}</Text>
-        <Text>Dashboard</Text>
+        <Calendar
+          current={selected}
+          onDayPress={(day) => setSelected(day.dateString)}
+          markedDates={{
+            [selected]: { selected: true, selectedColor: "#FF9800" },
+          }}
+          hideExtraDays={true}
+          firstDay={1} // Week starts on Monday
+          enableSwipeMonths={false}
+          theme={{
+            selectedDayBackgroundColor: "#FF9800",
+            todayTextColor: "#FF9800",
+            arrowColor: "#FF9800",
+            textDayFontSize: 16,
+            textMonthFontWeight: "bold",
+          }}
+          style={styles.calendar}
+        />
+        <View style={styles.detailsBox}>
+          <Text style={styles.selectedText}>Selected Date: {selected}</Text>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
-  },
-  card: {
-    width: "100%",
-    backgroundColor: "white",
-    borderRadius: 16,
-    padding: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
-    alignItems: "center",
   },
   title: {
     fontSize: 28,
@@ -67,38 +75,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
-  subtitle: {
+  calendar: {
+    borderRadius: 10,
+    marginHorizontal: 10,
+    elevation: 2,
+  },
+  detailsBox: {
+    alignItems: "center",
+    marginTop: 20,
+  },
+  selectedText: {
     fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  input: {
-    width: "90%",
-    backgroundColor: "#f8f8f8",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 10,
-    fontSize: 18,
     color: "#333",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  button: {
-    backgroundColor: "#FF9800",
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "600",
   },
 });
